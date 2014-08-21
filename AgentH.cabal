@@ -17,6 +17,6 @@ cabal-version:       >=1.10
 
 executable AgentH
   main-is:             src/Main.hs
-  build-depends:       base >=4.7 && <4.8
+  build-depends:       base >=4.7 && <4.8, helm >=0.6.1 && <1.0 
   -- hs-source-dirs:      
   default-language:    Haskell2010
