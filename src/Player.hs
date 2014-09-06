@@ -28,11 +28,12 @@ normalizedArrows =
         
 player = foldp (flip movePlayer) (createPlayer someCity) normalizedArrows
 
-renderPlayer :: Signal Player -> Signal Form
-renderPlayer player = renderPlayerRaw <$> player
-    where renderPlayerRaw player = group [
-            renderCityInPos (city player) (position player),
-            filled green $ square 10
+renderPlayer :: Player -> (Double, Double) -> Form
+renderPlayer player dimensions = group $ transformRelatively <$> [
+            cityForm playerCity,
+            move playerPosition $ filled green $ square 10
             ]
-          renderCityInPos city position = transformRelatively position $ cityForm city
-          transformRelatively (x, y) = move (-x, -y)
+    where transformRelatively = move $ negateV position player ^-^ viewAddition playerCity playerPosition dimensions
+          playerCity = city player
+          playerPosition = position player
+          

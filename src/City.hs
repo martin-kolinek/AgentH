@@ -4,6 +4,8 @@ import           Control.Applicative
 import           FRP.Elerea.Simple
 import           FRP.Helm
 import           FRP.Helm.Graphics
+import Debug.Trace
+import Data.VectorSpace
 
 data City = City {width :: Double, height :: Double, startPoint :: (Double, Double)}
 
@@ -22,6 +24,20 @@ cityForm City {width = width, height = height} = group [
     move (-halfWallWidth, height + halfWallWidth) $ filled white $ square wallWidth
     ]
 
-someCity = City {width = 1000, height = 1000, startPoint = (100, 100)}
+someCity = City {width = 2000, height = 2000, startPoint = (1000, 1000)}
 
+cityLeft city = -wallWidth
+cityTop city = -wallWidth
+cityRight city = width city + wallWidth
+cityBottom city = width city + wallWidth
 
+viewAddition city (px, py) (dx, dy) = 
+    let left = px - dx/2
+        right = px + dx/2
+        top = py - dy/2
+        bottom = py + dy/2
+        leftD = max 0 $ cityLeft city - left
+        topD = max 0 $ cityTop city - top
+        bottomD = min 0 $ cityBottom city - bottom
+        rightD = min 0 $ cityRight city - right
+    in (leftD + rightD, topD + bottomD)

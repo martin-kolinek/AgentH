@@ -7,12 +7,15 @@ import City
 import Player
 import Control.Applicative
 
+intsToDoubles (x, y) = (realToFrac x, realToFrac y)
+
 elements :: Engine -> SignalGen (Signal Element)
 elements engine = do
     playerSignal <- player
-    let form = (:[]) <$> renderPlayer playerSignal
     dims <- Window.dimensions engine
-    return $ uncurry centeredCollage <$> dims <*> form
+    let intDims = intsToDoubles <$> dims 
+    let form = renderPlayer <$> playerSignal <*> intDims 
+    return $ uncurry centeredCollage <$> dims <*> (pure <$> form)
 
 main :: IO ()
 main = do
