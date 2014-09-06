@@ -1,23 +1,20 @@
 import FRP.Helm
+import FRP.Helm.Time
 import qualified FRP.Helm.Keyboard as Keyboard
 import qualified FRP.Helm.Window as Window
+import FRP.Elerea.Simple
+import City
+import Player
+import Control.Applicative
 
-data State = State { mx :: Double, my :: Double }
-
-step :: (Int, Int) -> State -> State
-step (dx, dy) state = state { mx = realToFrac dx + mx state,
-                              my = realToFrac dy + my state }
-
-render :: (Int, Int) -> State -> Element
-render (w, h) (State { mx = mx, my = my }) =
-  centeredCollage w h [move (mx, my) $ filled white $ square 100]
+elements :: Engine -> SignalGen (Signal Element)
+elements engine = do
+    playerSignal <- player
+    let form = (:[]) <$> renderPlayer playerSignal
+    dims <- Window.dimensions engine
+    return $ uncurry centeredCollage <$> dims <*> form
 
 main :: IO ()
 main = do
     engine <- startup defaultConfig
-
-    run engine $ render <~ Window.dimensions engine ~~ stepper
-
-  where
-    state = State { mx = 0, my = 0 }
-    stepper = foldp step state Keyboard.arrows
+    run engine $ elements engine
