@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 module Rectangle where
 
-import Data.AdditiveGroup
+import Data.VectorSpace
 import Control.Monad
 import Data.Maybe
 import Data.Functor
@@ -43,7 +43,7 @@ intersection rect1 rect2 = rectangleFromBounds maxLeft maxTop minRight minBottom
           maxTop = max top1 top2
           minBottom = min bottom1 bottom2
 
-collide :: Rectangle -> Rectangle -> (Double, Double) -> Rectangle
+collide :: Rectangle -> Rectangle -> (Double, Double) -> (Double, Double)
 collide collider wall velocity = 
     let moved = moveRectangle collider velocity
         collision = intersection moved wall
@@ -52,6 +52,6 @@ collide collider wall velocity =
         adjustment = if cWidth < cHeight 
             then (signum (fst velocity) * cWidth, 0) 
             else (0, signum (snd velocity) * cHeight)
-    in moveRectangle collider $ velocity ^-^ adjustment
+    in velocity ^-^ adjustment
     
-rectangleForm (Rectangle position (w, h)) = move position $ filled white $ rect w h
+rectangleForm (Rectangle position size@(w, h)) = move (position ^+^ (size ^/ 2)) $ filled white $ rect w h

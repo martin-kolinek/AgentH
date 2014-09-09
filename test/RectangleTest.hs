@@ -18,11 +18,11 @@ physicsTests = [
     testCase "rectangle intersection returns correct result for intersecting rectangles" $
         intersection (Rectangle (1, 1) (4, 3)) (Rectangle (4, 2) (3, 1)) @?= (Just $ Rectangle (4, 2) (1, 1)),
     testCase "collide moves rectangle" $
-        collide (Rectangle (1, 5) (1, 1)) (Rectangle (1, 0) (1, 1)) (1, -1) @?= Rectangle (2, 4) (1, 1),
+        collide (Rectangle (1, 5) (1, 1)) (Rectangle (1, 0) (1, 1)) (1, -1) @?= (1, -1),
     testCase "collide does not move into wall" $
-        collide (Rectangle (1, 5) (1, 1)) (Rectangle (3, 0) (5, 10)) (1.5, -2) @?= Rectangle (2, 3) (1, 1),
+        collide (Rectangle (1, 5) (1, 1)) (Rectangle (3, 0) (5, 10)) (1.5, -2) @?= (1.0, -2),
     testCase "collide does not move into wall" $
-        collide (Rectangle (1, 5) (1, 1)) (Rectangle (3, 0) (5, 10)) (1.5, 2) @?= Rectangle (2, 7) (1, 1),
+        collide (Rectangle (1, 5) (1, 1)) (Rectangle (3, 0) (5, 10)) (1.5, 2) @?= (1.0, 2),
     testCase "collide does not move into wall" $
-        collide (Rectangle (5, 1) (1, 1)) (Rectangle (0, 3) (10, 5)) (-2, 1.5) @?= Rectangle (3, 2) (1, 1)
+        collide (Rectangle (5, 1) (1, 1)) (Rectangle (0, 3) (10, 5)) (-2, 1.5) @?= (-2, 1.0)
     ]

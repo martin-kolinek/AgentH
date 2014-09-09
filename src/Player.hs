@@ -9,16 +9,24 @@ import Data.VectorSpace
 import FRP.Elerea.Simple
 import City
 import Control.Applicative
+import Rectangle
 
-data Player = Player {position :: (Double, Double), city :: City}
+data Player = Player {playerPosition :: (Double, Double), city :: City}
 
-movePlayer player dpos = player {position = position player ^+^ (playerSpeed *^ dpos)}
+movePlayer :: Player -> (Double, Double) -> Player
+movePlayer player dpos = 
+    let initVelocity = playerSpeed *^ dpos
+        step velocity wall = collide (playerRectangle player) wall velocity 
+        finalVelocity = foldl step initVelocity (cityWalls $ city player) 
+    in player {playerPosition = playerPosition player ^+^ finalVelocity} 
 
-createPlayer city = Player {position = startPoint city, city = city}
+createPlayer city = Player {playerPosition = startPoint city, city = city}
 
 playerSpeed = 0.3  
 
-playerForm = filled white $ square 20
+playerRadius = 10
+
+playerRectangle player = Rectangle (playerPosition player ^-^ (playerRadius, playerRadius)) (playerRadius * 2, playerRadius * 2)
 
 normalizedArrows :: SignalGen (Signal (Double, Double))
 normalizedArrows = 
@@ -31,9 +39,9 @@ player = foldp (flip movePlayer) (createPlayer someCity) normalizedArrows
 renderPlayer :: Player -> (Double, Double) -> Form
 renderPlayer player dimensions = group $ transformRelatively <$> [
             cityForm playerCity,
-            move playerPosition $ filled green $ square 10
+            move position $ filled green $ square $ 2*playerRadius
             ]
-    where transformRelatively = move $ negateV position player ^-^ viewAddition playerCity playerPosition dimensions
+    where transformRelatively = move $ negateV playerPosition player ^-^ viewAddition playerCity position dimensions
           playerCity = city player
-          playerPosition = position player
+          position = playerPosition player
           

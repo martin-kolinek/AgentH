@@ -6,30 +6,29 @@ import           FRP.Helm
 import           FRP.Helm.Graphics
 import Debug.Trace
 import Data.VectorSpace
+import Rectangle
 
-data City = City {width :: Double, height :: Double, startPoint :: (Double, Double)}
+data City = City {cityWidth :: Double, cityHeight :: Double, startPoint :: (Double, Double)}
 
 wallWidth = 20
 halfWallWidth = wallWidth / 2
 
-cityForm :: City -> Form
-cityForm City {width = width, height = height} = group [
-    move (width/2, -halfWallWidth) $ filled white $ rect width wallWidth,
-    move (width + halfWallWidth, height/2) $ filled white $ rect wallWidth height,
-    move (width/2, height + halfWallWidth) $ filled white $ rect width wallWidth,
-    move (-halfWallWidth, height/2) $ filled white $ rect wallWidth height,
-    move (-halfWallWidth, -halfWallWidth) $ filled white $ square wallWidth,
-    move (width + halfWallWidth, -halfWallWidth) $ filled white $ square wallWidth,
-    move (width + halfWallWidth, height + halfWallWidth) $ filled white $ square wallWidth,
-    move (-halfWallWidth, height + halfWallWidth) $ filled white $ square wallWidth
+cityWalls City {cityWidth = width, cityHeight = height} = [
+    Rectangle (-wallWidth, -wallWidth) (width + 2* wallWidth, wallWidth),
+    Rectangle (-wallWidth, 0) (wallWidth, height),
+    Rectangle (-wallWidth, height) (width+2*wallWidth, wallWidth),
+    Rectangle (width, 0) (wallWidth, height)
     ]
 
-someCity = City {width = 2000, height = 2000, startPoint = (1000, 1000)}
+cityForm :: City -> Form
+cityForm city = group $ rectangleForm <$> cityWalls city 
+
+someCity = City {cityWidth = 1000, cityHeight = 1000, startPoint = (500, 500)}
 
 cityLeft city = -wallWidth
 cityTop city = -wallWidth
-cityRight city = width city + wallWidth
-cityBottom city = width city + wallWidth
+cityRight city = cityWidth city + wallWidth
+cityBottom city = cityHeight city + wallWidth
 
 viewAddition city (px, py) (dx, dy) = 
     let left = px - dx/2
