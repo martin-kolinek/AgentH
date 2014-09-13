@@ -21,7 +21,9 @@ test-suite AgentH-Test
   main-is:             MainTestSuite.hs
   build-depends:       base, HUnit, QuickCheck, test-framework, test-framework-hunit, test-framework-quickcheck2, vector-space, helm, elerea
   default-language:    Haskell2010
-  other-modules:       RectangleTest
+  other-modules:       
+                       RectangleTest,
+                       CityTest
 
 executable AgentH
   build-depends:       base >=4.7 && <4.8, helm >=0.6.1 && <1.0, elerea >=2.7 && <3, vector-space >=0.8.7 && <0.9
