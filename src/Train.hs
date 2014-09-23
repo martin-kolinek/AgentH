@@ -8,18 +8,22 @@ import FRP.Elerea.Simple
 import City
 import Control.Monad
 import Data.List
+import Data.Fixed
+import Data.Maybe
 
 data Train = Train { schedule :: [(City, Time)] }
 
-trainCity :: Train -> Time -> Maybe City 
+trainCity :: Train -> Signal Time -> SignalGen (Signal (Maybe City))
 trainCity train time = undefined 
-    where timeAtCity = 5 * second
-          createCityTime time city = (Just city, time)
-          cityStays = map (createCityTime timeAtCity . fst) $ schedule train
-          travels = map ((Nothing, ) . snd) $ schedule train
-          positions = concat $ transpose [cityStays, travels]
+    --where timeAtCity = 5 * second
+          --cityStays = map (const timeAtCity) $ schedule train
+          --travelTimes = map snd $ schedule train
+          --completeCycle = sum cityStays + sum travelTimes
+          --inCurrentCycle = time `mod'` completeCycle*/
+          --positions = concat $ transpose [cityStays, travels]
 
 someTrains = [Train [(someCity, 10 * second), (secondCity, 10 * second)]]
 
-renderTrain train time city = guard (Just city == trainCity train time) >>
-    (Just $ move (startPoint city) $ filled blue $ rect 50 50)
+renderTrain (Just city) = Just $ move (startPoint city) $ filled blue $ rect 50 50
+renderTrain Nothing = Nothing
+

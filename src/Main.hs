@@ -13,8 +13,9 @@ elements :: Engine -> SignalGen (Signal Element)
 elements engine = do
     playerSignal <- player
     dims <- Window.dimensions engine
+    timeSignal <- running
     let intDims = intsToDoubles <$> dims 
-    let form = renderPlayer <$> playerSignal <*> intDims 
+    form <- renderPlayerSignal playerSignal intDims timeSignal 
     return $ uncurry centeredCollage <$> dims <*> (pure <$> form)
 
 main :: IO ()

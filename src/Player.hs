@@ -10,6 +10,7 @@ import FRP.Elerea.Simple
 import City
 import Control.Applicative
 import Rectangle
+import Data.Traversable
 
 data Player = Player {playerPosition :: (Double, Double), city :: City}
 
@@ -36,12 +37,13 @@ normalizedArrows =
         
 player = foldp (flip movePlayer) (createPlayer someCity) normalizedArrows
 
-renderPlayer :: Player -> (Double, Double) -> Form
-renderPlayer player dimensions = group $ transformRelatively <$> [
-            cityForm playerCity,
-            move position $ filled green $ square $ 2*playerRadius
-            ]
-    where transformRelatively = move $ negateV playerPosition player ^-^ viewAddition playerCity position dimensions
-          playerCity = city player
-          position = playerPosition player
-          
+renderPlayerSignal :: Signal Player -> Signal (Double, Double) -> Signal Time -> SignalGen (Signal Form)
+renderPlayerSignal playerSignal dimensionsSignal timeSignal = do 
+        playerForm <- pure $ rectangleForm . playerRectangle <$> playerSignal
+        playerCityForm <- pure $ cityForm . city <$> playerSignal
+        combinedForm <- pure $ group <$> sequenceA [playerForm, playerCityForm]
+        --return combinedForm
+        return $ transformRelatively <$> playerSignal <*> dimensionsSignal <*> combinedForm
+            where transformRelatively player dimensions = 
+                    move $ negateV playerPosition player ^-^ 
+                        viewAddition (city player) (playerPosition player) dimensions
