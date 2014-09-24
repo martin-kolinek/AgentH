@@ -11,6 +11,7 @@ import City
 import Control.Applicative
 import Rectangle
 import Data.Traversable
+import Train
 
 data Player = Player {playerPosition :: (Double, Double), city :: City}
 
@@ -39,10 +40,11 @@ player = foldp (flip movePlayer) (createPlayer someCity) normalizedArrows
 
 renderPlayerSignal :: Signal Player -> Signal (Double, Double) -> Signal Time -> SignalGen (Signal Form)
 renderPlayerSignal playerSignal dimensionsSignal timeSignal = do 
-        playerForm <- pure $ rectangleForm . playerRectangle <$> playerSignal
-        playerCityForm <- pure $ cityForm . city <$> playerSignal
-        combinedForm <- pure $ group <$> sequenceA [playerForm, playerCityForm]
-        --return combinedForm
+        let playerForm = rectangleForm . playerRectangle <$> playerSignal
+        let playerCityForm = cityForm . city <$> playerSignal
+        timeSignal <- running
+        trainForm <- renderTrainsByCity someTrains timeSignal (city <$> playerSignal)
+        combinedForm <- pure $ group <$> sequenceA [playerForm, playerCityForm, trainForm]
         return $ transformRelatively <$> playerSignal <*> dimensionsSignal <*> combinedForm
             where transformRelatively player dimensions = 
                     move $ negateV playerPosition player ^-^ 

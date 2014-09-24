@@ -7,9 +7,10 @@ import FRP.Helm.Color
 import FRP.Elerea.Simple
 import City
 import Control.Monad
-import Data.List
+import Control.Applicative
 import Data.Fixed
 import Data.Maybe
+import Data.Traversable (sequenceA)
 
 data Train = Train { schedule :: [(City, Time)] }
 
@@ -27,3 +28,13 @@ someTrains = [Train [(someCity, 10 * second), (secondCity, 10 * second)]]
 renderTrain (Just city) = Just $ move (startPoint city) $ filled blue $ rect 50 50
 renderTrain Nothing = Nothing
 
+renderTrainByCity :: Signal Time -> Signal City -> Train -> SignalGen (Signal Form)
+renderTrainByCity timeSignal citySignal train = do
+    currentTrainCity <- trainCity train timeSignal
+    undefined
+    
+renderTrainsByCity :: [Train] -> Signal Time -> Signal City -> SignalGen (Signal Form)
+renderTrainsByCity trains time city = do
+    formSignals <- mapM  (renderTrainByCity time city) trains
+    return $ group <$> sequenceA formSignals
+    
