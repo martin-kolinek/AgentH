@@ -42,7 +42,7 @@ renderPlayerSignal :: Signal Player -> Signal (Double, Double) -> Signal Time ->
 renderPlayerSignal playerSignal dimensionsSignal timeSignal = do 
         let playerForm = rectangleForm . playerRectangle <$> playerSignal
         let playerCityForm = cityForm . city <$> playerSignal
-        timeSignal <- running
+        timeSignal <- delta
         trainForm <- renderTrainsByCity someTrains timeSignal (city <$> playerSignal)
         combinedForm <- pure $ group <$> sequenceA [playerForm, playerCityForm, trainForm]
         return $ transformRelatively <$> playerSignal <*> dimensionsSignal <*> combinedForm
