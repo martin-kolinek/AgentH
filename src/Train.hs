@@ -33,7 +33,7 @@ someTrains = [Train [(someCity, 10 * second), (secondCity, 10 * second)]]
 renderTrain (Just city) = Just $ move (startPoint city) $ filled blue $ rect 50 50
 renderTrain Nothing = Nothing
 
-renderTrainByCity :: Signal Time -> Signal City -> Train -> SignalGen (Signal Form)
+renderTrainByCity :: Signal Time -> Signal (Maybe City) -> Train -> SignalGen (Signal Form)
 renderTrainByCity timeSignal citySignal train = do
     currentTrainCity <- trainCity train timeSignal
     let cityCheck maybeTrainCity maybeTestCity = do
@@ -41,11 +41,11 @@ renderTrainByCity timeSignal citySignal train = do
             testCity <- maybeTestCity
             guard $ testCity == trainCity
             return testCity
-    let cityToRender = cityCheck <$> currentTrainCity <*> (Just <$> citySignal)
+    let cityToRender = cityCheck <$> currentTrainCity <*> citySignal
     return $ group <$> maybeToList <$> (renderTrain <$> cityToRender)
     
-renderTrainsByCity :: [Train] -> Signal Time -> Signal City -> SignalGen (Signal Form)
+renderTrainsByCity :: [Train] -> Signal Time -> Signal (Maybe City) -> SignalGen (Signal Form)
 renderTrainsByCity trains time city = do
-    formSignals <- mapM  (renderTrainByCity time city) trains
+    formSignals <- mapM (renderTrainByCity time city) trains
     return $ group <$> sequenceA formSignals
     

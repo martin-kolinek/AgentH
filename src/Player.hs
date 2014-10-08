@@ -12,17 +12,20 @@ import Control.Applicative
 import Rectangle
 import Data.Traversable
 import Train
+import FRP.Helm.Text
+import Data.Maybe 
 
-data Player = Player {playerPosition :: (Double, Double), city :: City}
+data Player = Player {playerPosition :: (Double, Double), city :: Maybe City}
 
 movePlayer :: Player -> (Double, Double) -> Player
-movePlayer player dpos = 
+movePlayer player@Player {playerPosition = playerPosition, city = Just playerCity} dpos = 
     let initVelocity = playerSpeed *^ dpos
         step velocity wall = collide (playerRectangle player) wall velocity 
-        finalVelocity = foldl step initVelocity (cityWalls $ city player) 
-    in player {playerPosition = playerPosition player ^+^ finalVelocity} 
+        finalVelocity = foldl step initVelocity (cityWalls playerCity) 
+    in player {playerPosition = playerPosition ^+^ finalVelocity}
+movePlayer player _ = player
 
-createPlayer city = Player {playerPosition = startPoint city, city = city}
+createPlayer city = Player {playerPosition = startPoint city, city = Just city}
 
 playerSpeed = 0.3  
 
@@ -36,16 +39,24 @@ normalizedArrows =
     where 
         normalizeArrows (dx, dy) delta = (realToFrac dx * delta, realToFrac dy * delta)
         
-player = foldp (flip movePlayer) (createPlayer someCity) normalizedArrows
+player = foldp (flip movePlayer) (Player (0, 0) Nothing) normalizedArrows
 
 renderPlayerSignal :: Signal Player -> Signal (Double, Double) -> Signal Time -> SignalGen (Signal Form)
-renderPlayerSignal playerSignal dimensionsSignal timeSignal = do 
-        let playerForm = rectangleForm . playerRectangle <$> playerSignal
-        let playerCityForm = cityForm . city <$> playerSignal
-        timeSignal <- delta
-        trainForm <- renderTrainsByCity someTrains timeSignal (city <$> playerSignal)
-        combinedForm <- pure $ group <$> sequenceA [playerForm, playerCityForm, trainForm]
-        return $ transformRelatively <$> playerSignal <*> dimensionsSignal <*> combinedForm
-            where transformRelatively player dimensions = 
-                    move $ negateV playerPosition player ^-^ 
-                        viewAddition (city player) (playerPosition player) dimensions
+renderPlayerSignal playerSignal dimensionsSignal timeSignal = do
+            let playerCitySignal = city <$> playerSignal
+            let playerPositionSignal = playerPosition <$> playerSignal
+            let playerForm = rectangleForm . playerRectangle <$> playerSignal
+            let playerCityForm = group <$> maybeToList <$> fmap cityForm <$> playerCitySignal
+            timeSignal <- delta
+            trainForm <- renderTrainsByCity someTrains timeSignal playerCitySignal
+            combinedForm <- pure $ group <$> sequenceA [playerForm, playerCityForm, trainForm]
+            let renderPlayerOutsideCity Nothing = toForm $ text $ color white $ toText "Travelling"
+                renderPlayerOutsideCity (Just _) = group []
+                travellingFormSignal = renderPlayerOutsideCity <$> playerCitySignal
+                transformedCombined =  transformRelatively <$> playerCitySignal <*> playerPositionSignal <*> dimensionsSignal <*> combinedForm
+            return $ group <$> sequenceA [transformedCombined, travellingFormSignal]
+                where transformRelatively (Just playerCity) playerPosition dimensions form = 
+                        (move $ negateV playerPosition ^-^ 
+                            viewAddition playerCity playerPosition dimensions) form
+                      transformRelatively Nothing _ _ _ = group []
+
