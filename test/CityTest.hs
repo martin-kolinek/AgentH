@@ -4,6 +4,7 @@ import           Test.Framework
 import           Test.Framework.Providers.HUnit
 import           Test.HUnit
 import City
+import FRP.Helm.Color
 
 cityTests = [
     testCase "viewAddition is correct" $ 
@@ -17,4 +18,4 @@ cityTests = [
     testCase "viewAddition is correct" $ 
         viewAddition testCity (200, 200) (100, 100) @?= (0, 0)
     ] where 
-    testCity = City "test" 1000 1000 (100, 100)
+    testCity = City "test" 1000 1000 (100, 100) black

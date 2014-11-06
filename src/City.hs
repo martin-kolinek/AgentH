@@ -8,7 +8,7 @@ import Debug.Trace
 import Data.VectorSpace
 import Rectangle
 
-data City = City {cityName :: String, cityWidth :: Double, cityHeight :: Double, startPoint :: (Double, Double)} deriving (Show, Eq)
+data City = City {cityName :: String, cityWidth :: Double, cityHeight :: Double, startPoint :: (Double, Double), cityColor :: Color} deriving (Show, Eq)
 
 wallWidth = 20
 halfWallWidth = wallWidth / 2
@@ -20,11 +20,14 @@ cityWalls City {cityWidth = width, cityHeight = height} = [
     Rectangle (width, 0) (wallWidth, height)
     ]
 
-cityForm :: City -> Form
-cityForm city = group $ rectangleForm <$> cityWalls city 
+cityBackground City {cityWidth = width, cityHeight = height, cityColor = color} = 
+    rectangleForm color $ Rectangle (0, 0) (width, height)
 
-someCity = City {cityName = "SomeCity", cityWidth = 1000, cityHeight = 1000, startPoint = (500, 500)}
-secondCity = City {cityName = "SecondCity", cityWidth = 500, cityHeight = 500, startPoint = (250, 250)}
+cityForm :: City -> Form
+cityForm city = group $ cityBackground city : (rectangleForm red <$> cityWalls city)  
+
+someCity = City {cityName = "SomeCity", cityWidth = 1000, cityHeight = 1000, startPoint = (500, 500), cityColor = gray}
+secondCity = City {cityName = "SecondCity", cityWidth = 500, cityHeight = 500, startPoint = (250, 250), cityColor = navy}
 
 someCities = [someCity, secondCity]
 

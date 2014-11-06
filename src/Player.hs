@@ -39,17 +39,17 @@ normalizedArrows =
     where 
         normalizeArrows (dx, dy) delta = (realToFrac dx * delta, realToFrac dy * delta)
         
-player = foldp (flip movePlayer) (Player (0, 0) Nothing) normalizedArrows
+player = foldp (flip movePlayer) (createPlayer secondCity) normalizedArrows
 
 renderPlayerSignal :: Signal Player -> Signal (Double, Double) -> Signal Time -> SignalGen (Signal Form)
 renderPlayerSignal playerSignal dimensionsSignal timeSignal = do
             let playerCitySignal = city <$> playerSignal
             let playerPositionSignal = playerPosition <$> playerSignal
-            let playerForm = rectangleForm . playerRectangle <$> playerSignal
+            let playerForm = rectangleForm green . playerRectangle <$> playerSignal
             let playerCityForm = group <$> maybeToList <$> fmap cityForm <$> playerCitySignal
             timeSignal <- delta
             trainForm <- renderTrainsByCity someTrains timeSignal playerCitySignal
-            combinedForm <- pure $ group <$> sequenceA [playerForm, playerCityForm, trainForm]
+            combinedForm <- pure $ group <$> sequenceA [playerCityForm, playerForm, trainForm]
             let renderPlayerOutsideCity Nothing = toForm $ text $ color white $ toText "Travelling"
                 renderPlayerOutsideCity (Just _) = group []
                 travellingFormSignal = renderPlayerOutsideCity <$> playerCitySignal

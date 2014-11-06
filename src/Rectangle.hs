@@ -54,4 +54,4 @@ collide collider wall velocity =
             else (0, signum (snd velocity) * cHeight)
     in velocity ^-^ adjustment
     
-rectangleForm (Rectangle position size@(w, h)) = move (position ^+^ (size ^/ 2)) $ filled white $ rect w h
+rectangleForm color (Rectangle position size@(w, h)) = move (position ^+^ (size ^/ 2)) $ filled color $ rect w h
