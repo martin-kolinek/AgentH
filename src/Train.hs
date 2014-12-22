@@ -1,74 +1,114 @@
 {-# LANGUAGE TupleSections #-}
 module Train where
 
+import Prelude hiding (sequence)
 import FRP.Helm.Time
 import FRP.Helm.Graphics
 import FRP.Helm.Color
 import FRP.Helm
 import FRP.Elerea.Simple
 import City
-import Control.Monad
+import Control.Monad (join, liftM, guard)
 import Control.Applicative
 import Data.Fixed
 import Data.Maybe
 import Debug.Trace
-import Data.Traversable (sequenceA)
+import Data.Traversable (sequenceA, sequence)
 import Data.List (transpose, find)
 import Rectangle
+import qualified Data.Map.Strict as M
+import qualified Control.Arrow as A 
 
-data Train = Train { schedule :: [(City, Time)] } deriving (Eq, Show)
+data Train = Train { schedule :: TrainSchedule, trainId :: TrainId } deriving (Eq, Show)
 
-trainCity :: Train -> Signal Time -> SignalGen (Signal (Maybe City))
-trainCity train deltaSignal = (head . snd) <~ transfer (stays, cities) step deltaSignal
+newtype TrainId = TrainId Int deriving (Eq, Show, Ord)
+
+data TrainCollection = TrainCollection { collectionTrains :: M.Map TrainId TrainDescriptor }
+
+data TrainDescriptor = TrainDescriptor {
+    currentCitySignal :: Signal (Maybe City),
+    citiesEnteringSignal :: Signal (Maybe City),
+    citiesLeavingSignal :: Signal (Maybe City)
+}
+
+newtype TrainSchedule = TrainSchedule [(City, Time)] deriving (Eq, Show)
+
+createTrainCollection :: [Train] -> SignalGen TrainCollection
+createTrainCollection trains = do
+    let processSchedule Train { schedule = schedule, trainId = trainId } = do
+            descriptor <- createTrainDescriptor schedule
+            return (trainId, descriptor)
+    listOfDescriptors <- mapM processSchedule trains
+    return $ TrainCollection $ M.fromList listOfDescriptors
+
+createTrainDescriptor :: TrainSchedule -> SignalGen TrainDescriptor
+createTrainDescriptor schedule = do
+    deltaSignal <- delta
+    currentCitySignal <- trainCity deltaSignal schedule
+    let slidingStep current (_, last) = (last, current)
+    slidingSignal <- transfer (Nothing, Nothing) slidingStep currentCitySignal
+    let enteringFilter (old, new)
+            | new /= old && isJust new = new
+            | otherwise = Nothing
+        leavingFilter (old, new)
+            | new /= old && isJust old = old
+            | otherwise = Nothing
+    let enteringSignal = enteringFilter <$> slidingSignal
+    let leavingSignal = leavingFilter <$> slidingSignal 
+    return (TrainDescriptor currentCitySignal enteringSignal leavingSignal)
+
+trainCity :: Signal Time -> TrainSchedule -> SignalGen (Signal (Maybe City))
+trainCity deltaSignal (TrainSchedule  trainSchedule) = (head . snd) <~ transfer (stays, cities) step deltaSignal
     where timeAtCity = 5 * second
-          trainSchedule = schedule train
-          cityStays = map (const timeAtCity) $ schedule train
-          travelTimes = map snd $ schedule train
+          cityStays = map (const timeAtCity) trainSchedule
+          travelTimes = map snd trainSchedule
           stays = cycle $ concat $ transpose [cityStays, travelTimes]
           cities = cycle $ concat $ transpose [map (Just . fst) trainSchedule, replicate (length trainSchedule) Nothing] 
           step delta (currentStay:otherStays, currentCity:otherCities) = let restOfStay = currentStay - delta
                  in if restOfStay > 0 then (restOfStay:otherStays, currentCity:otherCities)
                     else step (-restOfStay) (otherStays, otherCities)
-
+ 
 trainRectangle city = moveRectangle (Rectangle (-25, -25) (50, 50)) (startPoint city)
 
-someTrains = [Train [(someCity, 3 * second), (secondCity, 3 * second)]]
+trainSliding :: TrainCollection -> TrainId -> SignalGen (Signal (Maybe City, Maybe City))
+trainSliding collection id = transfer (Nothing, Nothing) step trainCitySignal
+    where step current (_, last) = (last, current)
+          trainCitySignal = currentCitySignal $ collectionTrains collection M.! id
+          
+someTrains = [Train (TrainSchedule [(someCity, 3 * second), (secondCity, 3 * second)]) (TrainId 1)]
+
+globalTrainCollection = createTrainCollection someTrains
+
+cityLeavingTrain :: TrainCollection -> Signal (Maybe City) -> Signal (Maybe TrainId) 
+cityLeavingTrain (TrainCollection descriptors) citySignal = 
+    let strength (x, y) = (x,) <$> y
+        leavingsSignal = sequenceA $ strength . A.second citiesLeavingSignal <$> M.toList descriptors
+        matchCity (Just desiredCity) (_, Just otherCity) = desiredCity == otherCity
+        matchCity _ _ = False
+        findTrainId desiredCity cities = fst <$> find (matchCity desiredCity) cities
+    in findTrainId <$> citySignal <*> leavingsSignal
+
+trainComing :: TrainCollection -> Signal (Maybe TrainId) -> Signal (Maybe City)
+trainComing (TrainCollection descriptors) trainSignal =
+    let findTrainSignal (Just trainId) = citiesEnteringSignal $ descriptors M.! trainId
+        findTrainSignal _ = pure Nothing
+    in trainSignal >>= findTrainSignal
 
 renderTrain (Just city) = Just $ rectangleForm blue $ trainRectangle city
 renderTrain Nothing = Nothing
 
-trainLeaving :: Train -> Signal Time -> SignalGen (Signal (Maybe City))
-trainLeaving train time = do
-    let slide2 current (_, last) = (last, current)
-        detectLeaving (last, Nothing) = last
-        detectLeaving _ = Nothing
-    slidingSignal <- foldp slide2 (Nothing, Nothing) $ trainCity train time
-    return $ detectLeaving <$> slidingSignal
-
-cityLeavingTrain :: Signal (Maybe City) -> Signal Time -> SignalGen (Signal (Maybe Train))
-cityLeavingTrain citySignal deltaSignal = do 
-    let cityFilter train city1 city2 
-                | city1 == city2 = Just train 
-                | otherwise = Nothing
-        trainLeavingCity train = do
-            trainLeavingSignal <- trainLeaving train deltaSignal
-            return $ cityFilter train <$> citySignal <*> trainLeavingSignal 
-    leavingTrainMaybes <- liftM sequenceA $ mapM trainLeavingCity someTrains
-    return $ join <$> find isJust <$> leavingTrainMaybes
-     
-renderTrainByCity :: Signal Time -> Signal (Maybe City) -> Train -> SignalGen (Signal Form)
-renderTrainByCity deltaSignal citySignal train = do
-    currentTrainCity <- trainCity train deltaSignal
-    let cityCheck maybeTrainCity maybeTestCity = do
+renderTrainByCity :: Signal (Maybe City) -> TrainDescriptor -> Signal Form
+renderTrainByCity citySignal trainDescriptor = 
+    let currentTrainCity = currentCitySignal trainDescriptor
+        cityCheck maybeTrainCity maybeTestCity = do
             trainCity <- maybeTrainCity
             testCity <- maybeTestCity
             guard $ testCity == trainCity
             return testCity
-    let cityToRender = cityCheck <$> currentTrainCity <*> citySignal
-    return $ group <$> maybeToList <$> (renderTrain <$> cityToRender)
+        cityToRender = cityCheck <$> currentTrainCity <*> citySignal
+    in group <$> maybeToList <$> (renderTrain <$> cityToRender)
     
-renderTrainsByCity :: [Train] -> Signal Time -> Signal (Maybe City) -> SignalGen (Signal Form)
-renderTrainsByCity trains time city = do
-    formSignals <- mapM (renderTrainByCity time city) trains
-    return $ group <$> sequenceA formSignals
-    
+renderTrainsByCity :: TrainCollection -> Signal (Maybe City) -> Signal Form
+renderTrainsByCity trains city = 
+    let trainFormSignals =  M.elems $ M.map (renderTrainByCity city) (collectionTrains trains)
+    in group <$> sequenceA trainFormSignals

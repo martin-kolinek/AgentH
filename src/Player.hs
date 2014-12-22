@@ -11,6 +11,7 @@ import Data.VectorSpace
 import FRP.Elerea.Simple
 import City
 import Control.Applicative
+import Control.Monad (liftM)
 import Rectangle
 import Data.Traversable
 import Train
@@ -18,7 +19,7 @@ import FRP.Helm.Text
 import Data.Maybe
 import Debug.Trace 
 
-data PlayerLocation = InCity City | OnTrain Train deriving (Eq, Show)
+data PlayerLocation = InCity City | OnTrain TrainId deriving (Eq, Show)
 
 data Player = Player {playerPosition :: (Double, Double), playerLocation :: PlayerLocation}
 
@@ -32,6 +33,9 @@ movePlayer player _ = player
 
 playerCity Player { playerLocation = InCity city } = Just city
 playerCity _ = Nothing
+
+playerTrain Player { playerLocation = OnTrain train } = Just train
+playerTrain _ = Nothing
 
 createPlayer city = Player {playerPosition = startPoint city, playerLocation = InCity city}
 
@@ -47,22 +51,23 @@ normalizedArrows =
     where 
         normalizeArrows (dx, dy) delta = (realToFrac dx * delta, realToFrac dy * delta)
         
-justOnes = do { rec { xs <- Just (1:xs) }
-              ; return (map negate xs) }
-        
 player :: SignalGen (Signal Player)
-player = do 
+player = mdo 
     let tryBoard (Just train) player@Player {playerLocation = InCity city} = 
                let playerRect = playerRectangle player
                    intersects = isJust $ intersection playerRect $ trainRectangle city
                in if intersects then player {playerLocation = OnTrain train} else player
-        tryBoard _ player = player 
+        tryBoard _ player = player
+        tryUnboard _ (Just city) = createPlayer city
+        tryUnboard player _ = player
     deltaSignal <- delta
     arrowsSignal <- normalizedArrows
-    rec
-        trainLeavingCitySignal <- cityLeavingTrain (playerCity <$> player) deltaSignal 
-        let boardedPlayer = tryBoard <$> trainLeavingCitySignal <*> player
-        player <- FRP.Elerea.Simple.delay (createPlayer secondCity) $ movePlayer <$> boardedPlayer <*> arrowsSignal  
+    trainCollection <- globalTrainCollection
+    let trainLeavingCitySignal = cityLeavingTrain trainCollection (playerCity <$> player)
+    let trainComingSignal = trainComing trainCollection (playerTrain <$> player)
+    let boardedPlayer = tryBoard <$> trainLeavingCitySignal <*> player
+    let unboardedPlayer = tryUnboard <$> boardedPlayer <*> trainComingSignal
+    player <- FRP.Elerea.Simple.delay (createPlayer secondCity) $ movePlayer <$> unboardedPlayer <*> arrowsSignal  
     return boardedPlayer
 
 renderPlayerSignal :: Signal Player -> Signal (Double, Double) -> Signal Time -> SignalGen (Signal Form)
@@ -72,8 +77,8 @@ renderPlayerSignal playerSignal dimensionsSignal timeSignal = do
             let playerPositionSignal = playerPosition <$> playerSignal
             let playerForm = rectangleForm green . playerRectangle <$> playerSignal
             let playerCityForm = group <$> maybeToList <$> fmap cityForm <$> playerCitySignal
-            timeSignal <- delta
-            trainForm <- renderTrainsByCity someTrains timeSignal playerCitySignal
+            trainCollection <- globalTrainCollection
+            let trainForm = renderTrainsByCity trainCollection playerCitySignal
             combinedForm <- pure $ group <$> sequenceA [playerCityForm, playerForm, trainForm]
             let renderPlayerOutsideCity (OnTrain _) = toForm $ text $ color white $ toText "Travelling"
                 renderPlayerOutsideCity _ = group []
