@@ -3,20 +3,17 @@ import FRP.Helm.Time
 import qualified FRP.Helm.Keyboard as Keyboard
 import qualified FRP.Helm.Window as Window
 import FRP.Elerea.Simple
-import City
-import Player
 import Control.Applicative
+import World
 
 intsToDoubles (x, y) = (realToFrac x, realToFrac y)
 
 elements :: Engine -> SignalGen (Signal Element)
 elements engine = do
-    playerSignal <- player
+    world <- globalWorld
     dims <- Window.dimensions engine
-    timeSignal <- running
-    let intDims = intsToDoubles <$> dims 
-    form <- renderPlayerSignal playerSignal intDims timeSignal 
-    return $ uncurry centeredCollage <$> dims <*> (pure <$> form)
+    let worldFormSignal = pure <$> renderWorld (intsToDoubles <$> dims) world
+    return $ uncurry centeredCollage <$> dims <*> worldFormSignal
 
 main :: IO ()
 main = do

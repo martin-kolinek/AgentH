@@ -51,8 +51,8 @@ normalizedArrows =
     where 
         normalizeArrows (dx, dy) delta = (realToFrac dx * delta, realToFrac dy * delta)
         
-player :: SignalGen (Signal Player)
-player = mdo 
+player :: TrainCollection -> SignalGen (Signal Player)
+player trainCollection = mdo 
     let tryBoard (Just train) player@Player {playerLocation = InCity city} = 
                let playerRect = playerRectangle player
                    intersects = isJust $ intersection playerRect $ trainRectangle city
@@ -62,13 +62,14 @@ player = mdo
         tryUnboard player _ = player
     deltaSignal <- delta
     arrowsSignal <- normalizedArrows
-    trainCollection <- globalTrainCollection
     let trainLeavingCitySignal = cityLeavingTrain trainCollection (playerCity <$> player)
     let trainComingSignal = trainComing trainCollection (playerTrain <$> player)
     let boardedPlayer = tryBoard <$> trainLeavingCitySignal <*> player
     let unboardedPlayer = tryUnboard <$> boardedPlayer <*> trainComingSignal
     player <- FRP.Elerea.Simple.delay (createPlayer secondCity) $ movePlayer <$> unboardedPlayer <*> arrowsSignal  
     return boardedPlayer
+
+playerForm player = rectangleForm green . playerRectangle $ player
 
 renderPlayerSignal :: Signal Player -> Signal (Double, Double) -> Signal Time -> SignalGen (Signal Form)
 renderPlayerSignal playerSignal dimensionsSignal timeSignal = do
@@ -81,7 +82,7 @@ renderPlayerSignal playerSignal dimensionsSignal timeSignal = do
             let trainForm = renderTrainsByCity trainCollection playerCitySignal
             combinedForm <- pure $ group <$> sequenceA [playerCityForm, playerForm, trainForm]
             let renderPlayerOutsideCity (OnTrain _) = toForm $ text $ color white $ toText "Travelling"
-                renderPlayerOutsideCity _ = group []
+                renderPlayerOutsideCity _ = group [] 
                 travellingFormSignal = renderPlayerOutsideCity <$> playerLocationSignal
                 transformedCombined =  transformRelatively <$> playerCitySignal <*> playerPositionSignal <*> dimensionsSignal <*> combinedForm
             return $ group <$> sequenceA [transformedCombined, travellingFormSignal]

@@ -69,11 +69,6 @@ trainCity deltaSignal (TrainSchedule  trainSchedule) = (head . snd) <~ transfer 
                     else step (-restOfStay) (otherStays, otherCities)
  
 trainRectangle city = moveRectangle (Rectangle (-25, -25) (50, 50)) (startPoint city)
-
-trainSliding :: TrainCollection -> TrainId -> SignalGen (Signal (Maybe City, Maybe City))
-trainSliding collection id = transfer (Nothing, Nothing) step trainCitySignal
-    where step current (_, last) = (last, current)
-          trainCitySignal = currentCitySignal $ collectionTrains collection M.! id
           
 someTrains = [Train (TrainSchedule [(someCity, 3 * second), (secondCity, 3 * second)]) (TrainId 1)]
 

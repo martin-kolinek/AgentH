@@ -24,7 +24,7 @@ cityBackground City {cityWidth = width, cityHeight = height, cityColor = color} 
     rectangleForm color $ Rectangle (0, 0) (width, height)
 
 cityForm :: City -> Form
-cityForm city = group $ cityBackground city : (rectangleForm red <$> cityWalls city)  
+cityForm city = group $ cityBackground city : (rectangleForm red <$> cityWalls city)
 
 someCity = City {cityName = "SomeCity", cityWidth = 1000, cityHeight = 1000, startPoint = (500, 500), cityColor = gray}
 secondCity = City {cityName = "SecondCity", cityWidth = 500, cityHeight = 500, startPoint = (250, 250), cityColor = navy}
