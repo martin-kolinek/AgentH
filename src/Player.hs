@@ -70,24 +70,3 @@ player trainCollection = mdo
     return boardedPlayer
 
 playerForm player = rectangleForm green . playerRectangle $ player
-
-renderPlayerSignal :: Signal Player -> Signal (Double, Double) -> Signal Time -> SignalGen (Signal Form)
-renderPlayerSignal playerSignal dimensionsSignal timeSignal = do
-            let playerCitySignal = playerCity <$> playerSignal
-            let playerLocationSignal = playerLocation <$> playerSignal
-            let playerPositionSignal = playerPosition <$> playerSignal
-            let playerForm = rectangleForm green . playerRectangle <$> playerSignal
-            let playerCityForm = group <$> maybeToList <$> fmap cityForm <$> playerCitySignal
-            trainCollection <- globalTrainCollection
-            let trainForm = renderTrainsByCity trainCollection playerCitySignal
-            combinedForm <- pure $ group <$> sequenceA [playerCityForm, playerForm, trainForm]
-            let renderPlayerOutsideCity (OnTrain _) = toForm $ text $ color white $ toText "Travelling"
-                renderPlayerOutsideCity _ = group [] 
-                travellingFormSignal = renderPlayerOutsideCity <$> playerLocationSignal
-                transformedCombined =  transformRelatively <$> playerCitySignal <*> playerPositionSignal <*> dimensionsSignal <*> combinedForm
-            return $ group <$> sequenceA [transformedCombined, travellingFormSignal]
-                where transformRelatively (Just playerCity) playerPosition dimensions form = 
-                        (move $ negateV playerPosition ^-^ 
-                            viewAddition playerCity playerPosition dimensions) form
-                      transformRelatively Nothing _ _ _ = group []
-

@@ -92,18 +92,17 @@ trainComing (TrainCollection descriptors) trainSignal =
 renderTrain (Just city) = Just $ rectangleForm blue $ trainRectangle city
 renderTrain Nothing = Nothing
 
-renderTrainByCity :: Signal (Maybe City) -> TrainDescriptor -> Signal Form
-renderTrainByCity citySignal trainDescriptor = 
+renderTrainByCity :: City -> TrainDescriptor -> Signal Form
+renderTrainByCity city trainDescriptor =
     let currentTrainCity = currentCitySignal trainDescriptor
-        cityCheck maybeTrainCity maybeTestCity = do
+        cityCheck testCity maybeTrainCity = do
             trainCity <- maybeTrainCity
-            testCity <- maybeTestCity
             guard $ testCity == trainCity
             return testCity
-        cityToRender = cityCheck <$> currentTrainCity <*> citySignal
+        cityToRender = cityCheck city <$> currentTrainCity
     in group <$> maybeToList <$> (renderTrain <$> cityToRender)
     
-renderTrainsByCity :: TrainCollection -> Signal (Maybe City) -> Signal Form
-renderTrainsByCity trains city = 
+renderTrainsByCity :: TrainCollection -> City -> Signal Form
+renderTrainsByCity trains city =
     let trainFormSignals =  M.elems $ M.map (renderTrainByCity city) (collectionTrains trains)
     in group <$> sequenceA trainFormSignals

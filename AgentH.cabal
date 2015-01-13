@@ -39,5 +39,8 @@ executable AgentH
   main-is:             Main.hs
   hs-source-dirs:      src
   other-modules:       
+                       City,
+                       Player,
+                       Rectangle,
                        Train,
                        World

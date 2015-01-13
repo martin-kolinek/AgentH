@@ -8,6 +8,7 @@ import FRP.Helm
 import FRP.Helm.Text
 import Control.Applicative
 import Data.VectorSpace
+import Data.Traversable
 
 data World = World (Signal Player) TrainCollection
 
@@ -18,11 +19,18 @@ globalWorld = do
     return $ World player trains
 
 renderWorld :: Signal (Double, Double) -> World -> Signal Form
-renderWorld dimensions (World playerSignal _) = renderPlayer <$> dimensions <*> playerSignal
+renderWorld dimensions (World playerSignal trainCollection) = do
+        dims <- dimensions
+        player <- playerSignal
+        renderPlayer dims trainCollection player
 
-renderPlayer :: (Double, Double) -> Player -> Form
-renderPlayer _ (Player _ (OnTrain _)) = toForm $ text $ color white $ toText "Travelling"
-renderPlayer dimensions player@(Player position (InCity city)) = viewTransform $ group [
-            cityForm city, 
-            playerForm player] 
-            where viewTransform = move $ negateV position ^-^ viewAddition city position dimensions
+renderPlayer :: (Double, Double) -> TrainCollection -> Player -> Signal Form
+renderPlayer _ _ (Player _ (OnTrain _)) = pure $ toForm $ text $ color white $ toText "Travelling"
+renderPlayer dimensions trainCollection player@(Player position (InCity city)) =
+        let untransformed = group <$> sequenceA [
+                                pure $ cityForm city,
+                                pure $ playerForm player,
+                                renderTrainsByCity trainCollection city
+                                ]
+            viewTransform = move $ negateV position ^-^ viewAddition city position dimensions
+        in viewTransform <$> untransformed
