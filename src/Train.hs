@@ -25,8 +25,10 @@ newtype TrainId = TrainId Int deriving (Eq, Show, Ord)
 
 data TrainCollection = TrainCollection { collectionTrains :: M.Map TrainId TrainDescriptor }
 
+data TrainPosition = EnteringCity City Double | TrainInCity City | LeavingCity City Double | BetweenCities
+
 data TrainDescriptor = TrainDescriptor {
-    currentCitySignal :: Signal (Maybe City),
+    currentPositionSignal :: Signal TrainPosition,
     citiesEnteringSignal :: Signal (Maybe City),
     citiesLeavingSignal :: Signal (Maybe City)
 }
@@ -46,24 +48,26 @@ createTrainDescriptor schedule = do
     deltaSignal <- delta
     currentCitySignal <- trainCity deltaSignal schedule
     let slidingStep current (_, last) = (last, current)
-    slidingSignal <- transfer (Nothing, Nothing) slidingStep currentCitySignal
-    let enteringFilter (old, new)
-            | new /= old && isJust new = new
-            | otherwise = Nothing
-        leavingFilter (old, new)
-            | new /= old && isJust old = old
-            | otherwise = Nothing
+    slidingSignal <- transfer (BetweenCities, BetweenCities) slidingStep currentCitySignal
+    let enteringFilter (TrainInCity old, TrainInCity new) | old /= new = Just new
+        enteringFilter (TrainInCity _, TrainInCity _) = Nothing
+        enteringFilter (_, TrainInCity new) = Just new
+        enteringFilter _ = Nothing
+        leavingFilter (TrainInCity old, TrainInCity new) | old /= new = Just old
+        leavingFilter (TrainInCity _, TrainInCity _) = Nothing
+        leavingFilter (TrainInCity old, _) = Just old
+        leavingFilter _ = Nothing
     let enteringSignal = enteringFilter <$> slidingSignal
     let leavingSignal = leavingFilter <$> slidingSignal 
     return (TrainDescriptor currentCitySignal enteringSignal leavingSignal)
 
-trainCity :: Signal Time -> TrainSchedule -> SignalGen (Signal (Maybe City))
+trainCity :: Signal Time -> TrainSchedule -> SignalGen (Signal TrainPosition)
 trainCity deltaSignal (TrainSchedule  trainSchedule) = (head . snd) <~ transfer (stays, cities) step deltaSignal
     where timeAtCity = 5 * second
           cityStays = map (const timeAtCity) trainSchedule
           travelTimes = map snd trainSchedule
           stays = cycle $ concat $ transpose [cityStays, travelTimes]
-          cities = cycle $ concat $ transpose [map (Just . fst) trainSchedule, replicate (length trainSchedule) Nothing] 
+          cities = cycle $ concat $ transpose [map (TrainInCity . fst) trainSchedule, replicate (length trainSchedule) BetweenCities] 
           step delta (currentStay:otherStays, currentCity:otherCities) = let restOfStay = currentStay - delta
                  in if restOfStay > 0 then (restOfStay:otherStays, currentCity:otherCities)
                     else step (-restOfStay) (otherStays, otherCities)
@@ -94,11 +98,9 @@ renderTrain Nothing = Nothing
 
 renderTrainByCity :: City -> TrainDescriptor -> Signal Form
 renderTrainByCity city trainDescriptor =
-    let currentTrainCity = currentCitySignal trainDescriptor
-        cityCheck testCity maybeTrainCity = do
-            trainCity <- maybeTrainCity
-            guard $ testCity == trainCity
-            return testCity
+    let currentTrainCity = currentPositionSignal trainDescriptor
+        cityCheck testCity (TrainInCity trainCity) | testCity == trainCity = Just testCity
+        cityCheck _ _ = Nothing
         cityToRender = cityCheck city <$> currentTrainCity
     in group <$> maybeToList <$> (renderTrain <$> cityToRender)
     
