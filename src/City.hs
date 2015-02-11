@@ -36,13 +36,18 @@ cityTop city = -wallWidth
 cityRight city = cityWidth city + wallWidth
 cityBottom city = cityHeight city + wallWidth
 
+viewAdditionPart cityBeginning cityEnd position windowDimension 
+    | cityEnd - cityBeginning < windowDimension = 
+        let cityLength = cityEnd - cityBeginning
+            centeringAddition = (windowDimension - cityLength) / 2
+        in -position + windowDimension / 2 + cityBeginning - centeringAddition
+viewAdditionPart cityBeginning cityEnd position windowDimension = 
+    let beginning = position - windowDimension / 2
+        end = position + windowDimension / 2
+        beginningDifference = max 0 $ cityBeginning - beginning
+        endDifference = min 0 $ cityEnd - end
+    in beginningDifference + endDifference
+    
 viewAddition city (px, py) (dx, dy) = 
-    let left = px - dx/2
-        right = px + dx/2
-        top = py - dy/2
-        bottom = py + dy/2
-        leftD = max 0 $ cityLeft city - left
-        topD = max 0 $ cityTop city - top
-        bottomD = min 0 $ cityBottom city - bottom
-        rightD = min 0 $ cityRight city - right
-    in (leftD + rightD, topD + bottomD)
+    (viewAdditionPart (cityLeft city) (cityRight city) px dx, 
+        viewAdditionPart (cityTop city) (cityBottom city) py dy)
