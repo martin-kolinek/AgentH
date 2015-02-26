@@ -25,7 +25,7 @@ newtype TrainId = TrainId Int deriving (Eq, Show, Ord)
 
 data TrainCollection = TrainCollection { collectionTrains :: M.Map TrainId TrainDescriptor }
 
-data TrainPosition = EnteringCity City Double | TrainInCity City | LeavingCity City Double | BetweenCities
+data TrainPosition = TrainInCity City | BetweenCities
 
 data TrainDescriptor = TrainDescriptor {
     currentPositionSignal :: Signal TrainPosition,

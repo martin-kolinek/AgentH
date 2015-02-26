@@ -6,14 +6,13 @@ import FRP.Elerea.Simple
 import Control.Applicative
 import World
 
-intsToDoubles (x, y) = (realToFrac x, realToFrac y)
-
 elements :: Engine -> SignalGen (Signal Element)
 elements engine = do
-    world <- globalWorld
+    world <- globalWorld engine
     dims <- Window.dimensions engine
-    let worldFormSignal = pure <$> renderWorld (intsToDoubles <$> dims) world
-    return $ uncurry centeredCollage <$> dims <*> worldFormSignal
+    worldFormSignal <- renderWorld world
+    let worldFormsSignal = pure <$> worldFormSignal
+    return $ uncurry centeredCollage <$> dims <*> worldFormsSignal
 
 main :: IO ()
 main = do

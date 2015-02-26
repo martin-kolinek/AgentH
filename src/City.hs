@@ -7,6 +7,7 @@ import           FRP.Helm.Graphics
 import Debug.Trace
 import Data.VectorSpace
 import Rectangle
+import HelmWrapper
 
 data City = City {cityName :: String, cityWidth :: Double, cityHeight :: Double, startPoint :: (Double, Double), cityColor :: Color} deriving (Show, Eq)
 
@@ -48,6 +49,6 @@ viewAdditionPart cityBeginning cityEnd position windowDimension =
         endDifference = min 0 $ cityEnd - end
     in beginningDifference + endDifference
     
-viewAddition city (px, py) (dx, dy) = 
+viewAddition city (px, py) (WindowDimensions (dx, dy)) = 
     (viewAdditionPart (cityLeft city) (cityRight city) px dx, 
         viewAdditionPart (cityTop city) (cityBottom city) py dy)

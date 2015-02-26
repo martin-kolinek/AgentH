@@ -9,22 +9,25 @@ import FRP.Helm.Text
 import Control.Applicative
 import Data.VectorSpace
 import Data.Traversable
+import qualified HelmWrapper (windowDimensions)
+import HelmWrapper (WindowDimensions)
 
-data World = World (Signal Player) TrainCollection
+data World = World (Signal Player) TrainCollection (Signal WindowDimensions)
 
-globalWorld :: SignalGen World
-globalWorld = do
+globalWorld :: Engine -> SignalGen World
+globalWorld engine = do
     trains <- globalTrainCollection
     player <- Player.player trains
-    return $ World player trains
+    winDims <- HelmWrapper.windowDimensions engine
+    return $ World player trains winDims
 
-renderWorld :: Signal (Double, Double) -> World -> Signal Form
-renderWorld dimensions (World playerSignal trainCollection) = do
+renderWorld :: World -> SignalGen (Signal Form)
+renderWorld (World playerSignal trainCollection dimensions) = return $ do
         dims <- dimensions
         player <- playerSignal
         renderPlayer dims trainCollection player
 
-renderPlayer :: (Double, Double) -> TrainCollection -> Player -> Signal Form
+renderPlayer :: WindowDimensions -> TrainCollection -> Player -> Signal Form
 renderPlayer _ _ (Player _ (OnTrain _)) = pure $ toForm $ text $ color white $ toText "Travelling"
 renderPlayer dimensions trainCollection player@(Player position (InCity city)) =
         let untransformed = group <$> sequenceA [

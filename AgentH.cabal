@@ -25,7 +25,8 @@ test-suite AgentH-Test
                        RectangleTest,
                        CityTest,
                        Train,
-                       World
+                       World,
+                       HelmWrapper
 
 executable AgentH
   build-depends:       
@@ -43,4 +44,5 @@ executable AgentH
                        Player,
                        Rectangle,
                        Train,
-                       World
+                       World,
+                       HelmWrapper
