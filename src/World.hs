@@ -21,8 +21,8 @@ globalWorld engine = do
     winDims <- HelmWrapper.windowDimensions engine
     return $ World player trains winDims
 
-renderWorld :: World -> SignalGen (Signal Form)
-renderWorld (World playerSignal trainCollection dimensions) = return $ do
+renderWorld :: World -> Signal Form
+renderWorld (World playerSignal trainCollection dimensions) = do
         dims <- dimensions
         player <- playerSignal
         renderPlayer dims trainCollection player

@@ -10,7 +10,7 @@ elements :: Engine -> SignalGen (Signal Element)
 elements engine = do
     world <- globalWorld engine
     dims <- Window.dimensions engine
-    worldFormSignal <- renderWorld world
+    let worldFormSignal = renderWorld world
     let worldFormsSignal = pure <$> worldFormSignal
     return $ uncurry centeredCollage <$> dims <*> worldFormsSignal
 

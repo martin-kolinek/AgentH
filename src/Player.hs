@@ -39,7 +39,7 @@ playerTrain _ = Nothing
 
 createPlayer city = Player {playerPosition = startPoint city, playerLocation = InCity city}
 
-playerSpeed = 0.3  
+playerSpeed = 160 / second
 
 playerRadius = 10
 
@@ -55,7 +55,7 @@ player :: TrainCollection -> SignalGen (Signal Player)
 player trainCollection = mdo 
     let tryBoard (Just train) player@Player {playerLocation = InCity city} = 
                let playerRect = playerRectangle player
-                   intersects = isJust $ intersection playerRect $ trainRectangle city
+                   intersects = isJust $ intersection playerRect =<< trainRectangle (TrainInCity city)
                in if intersects then player {playerLocation = OnTrain train} else player
         tryBoard _ player = player
         tryUnboard _ (Just city) = createPlayer city

@@ -5,7 +5,6 @@ import Data.VectorSpace
 import Control.Monad
 import Data.Maybe
 import Data.Functor
-import Debug.Trace
 import           FRP.Helm
 import           FRP.Helm.Graphics
 

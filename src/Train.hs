@@ -12,9 +12,9 @@ import Control.Monad (join, liftM, guard)
 import Control.Applicative
 import Data.Fixed
 import Data.Maybe
-import Debug.Trace
 import Data.Traversable (sequenceA, sequence)
 import Data.List (transpose, find)
+import Data.VectorSpace
 import Rectangle
 import qualified Data.Map.Strict as M
 import qualified Control.Arrow as A 
@@ -25,7 +25,14 @@ newtype TrainId = TrainId Int deriving (Eq, Show, Ord)
 
 data TrainCollection = TrainCollection { collectionTrains :: M.Map TrainId TrainDescriptor }
 
-data TrainPosition = TrainInCity City | BetweenCities
+type TrainPositionInCity = Double
+
+data TrainPosition = TrainInCity City | BetweenCities | ArivingCity City TrainPositionInCity | LeavingCity City TrainPositionInCity deriving (Show)
+
+positionCity (TrainInCity city) = Just city
+positionCity (ArivingCity city _) = Just city
+positionCity (LeavingCity city _) = Just city
+positionCity _ = Nothing
 
 data TrainDescriptor = TrainDescriptor {
     currentPositionSignal :: Signal TrainPosition,
@@ -33,7 +40,9 @@ data TrainDescriptor = TrainDescriptor {
     citiesLeavingSignal :: Signal (Maybe City)
 }
 
-newtype TrainSchedule = TrainSchedule [(City, Time)] deriving (Eq, Show)
+data TrainScheduleItem = TrainScheduleItem City Time deriving (Eq, Show)
+
+newtype TrainSchedule = TrainSchedule [TrainScheduleItem] deriving (Eq, Show)
 
 createTrainCollection :: [Train] -> SignalGen TrainCollection
 createTrainCollection trains = do
@@ -61,20 +70,62 @@ createTrainDescriptor schedule = do
     let leavingSignal = leavingFilter <$> slidingSignal 
     return (TrainDescriptor currentCitySignal enteringSignal leavingSignal)
 
+data TrainState = TrainState TrainPosition Time
+
+stateToPosition (TrainState pos _) = pos 
+
+initialTrainArivingPosition city = cityLeft city - trainWidth
+inStationTrainPosition city = fst $ startPoint city
+finalTrainLeavingPosition city = cityRight city + trainWidth
+
+createStates (TrainScheduleItem city travelTime) = [
+    TrainState (ArivingCity city $ initialTrainArivingPosition city) 0,
+    TrainState (TrainInCity city) (5 * second),
+    TrainState (LeavingCity city $ inStationTrainPosition city) 0,
+    TrainState BetweenCities travelTime]
+
+trainSpeed = 200 / second
+
+trainStateStep :: Time -> [TrainState] -> [TrainState]
+trainStateStep delta (TrainState (ArivingCity city trainInCityPosition) _:rest)
+    | newPosition < inStationTrainPosition city = 
+        TrainState (ArivingCity city newPosition) 0:rest
+    | otherwise = trainStateStep restDelta rest
+    where newPosition = trainInCityPosition + delta * trainSpeed 
+          restDelta = (newPosition - trainInCityPosition) / trainSpeed
+
+trainStateStep delta (TrainState (LeavingCity city trainInCityPosition) _:rest)
+    | newPosition < finalTrainLeavingPosition city = 
+        TrainState (LeavingCity city newPosition) 0:rest
+    | otherwise = trainStateStep restDelta rest
+    where newPosition = trainInCityPosition + delta * trainSpeed 
+          restDelta = (newPosition - trainInCityPosition) / trainSpeed
+
+trainStateStep delta (TrainState currentPosition remainingTime:rest)
+    | newRemainingTime > 0 = TrainState currentPosition newRemainingTime:rest
+    | otherwise = trainStateStep (-newRemainingTime) rest
+    where newRemainingTime = remainingTime - delta
+
 trainCity :: Signal Time -> TrainSchedule -> SignalGen (Signal TrainPosition)
-trainCity deltaSignal (TrainSchedule  trainSchedule) = (head . snd) <~ transfer (stays, cities) step deltaSignal
-    where timeAtCity = 5 * second
-          cityStays = map (const timeAtCity) trainSchedule
-          travelTimes = map snd trainSchedule
-          stays = cycle $ concat $ transpose [cityStays, travelTimes]
-          cities = cycle $ concat $ transpose [map (TrainInCity . fst) trainSchedule, replicate (length trainSchedule) BetweenCities] 
-          step delta (currentStay:otherStays, currentCity:otherCities) = let restOfStay = currentStay - delta
-                 in if restOfStay > 0 then (restOfStay:otherStays, currentCity:otherCities)
-                    else step (-restOfStay) (otherStays, otherCities)
- 
-trainRectangle city = moveRectangle (Rectangle (-25, -25) (50, 50)) (startPoint city)
+trainCity deltaSignal (TrainSchedule trainSchedule) = 
+    (stateToPosition . head) <~ transfer (cycle $ trainSchedule >>= createStates) trainStateStep deltaSignal
+
+trainWidth = 50
+
+trainRectangleAdjustment (ArivingCity city positionInCity) = Just (positionInCity, snd $ startPoint city)
+trainRectangleAdjustment (LeavingCity city positionInCity) = Just (positionInCity, snd $ startPoint city)
+trainRectangleAdjustment (TrainInCity city) = Just $ startPoint city
+trainRectangleAdjustment _ = Nothing 
+
+cityTrainRectangle (Just city) = Just $  Rectangle (-trainWidth/2, -trainWidth/2) (trainWidth, trainWidth)
+cityTrainRectangle _ = Nothing
+
+trainRectangle position = do
+    rect <- cityTrainRectangle $ positionCity position
+    adj <- trainRectangleAdjustment position
+    return $ moveRectangle rect adj
           
-someTrains = [Train (TrainSchedule [(someCity, 3 * second), (secondCity, 3 * second)]) (TrainId 1)]
+someTrains = [Train (TrainSchedule [TrainScheduleItem someCity $ 3 * second, TrainScheduleItem secondCity $ 3 * second]) (TrainId 1)]
 
 globalTrainCollection = createTrainCollection someTrains
 
@@ -93,16 +144,14 @@ trainComing (TrainCollection descriptors) trainSignal =
         findTrainSignal _ = pure Nothing
     in trainSignal >>= findTrainSignal
 
-renderTrain (Just city) = Just $ rectangleForm blue $ trainRectangle city
-renderTrain Nothing = Nothing
+renderTrain position = rectangleForm blue <$> trainRectangle position
 
 renderTrainByCity :: City -> TrainDescriptor -> Signal Form
 renderTrainByCity city trainDescriptor =
-    let currentTrainCity = currentPositionSignal trainDescriptor
-        cityCheck testCity (TrainInCity trainCity) | testCity == trainCity = Just testCity
-        cityCheck _ _ = Nothing
-        cityToRender = cityCheck city <$> currentTrainCity
-    in group <$> maybeToList <$> (renderTrain <$> cityToRender)
+    let currentTrainPosition = currentPositionSignal trainDescriptor
+        cityCheck position = Just city == positionCity position 
+        renderer position = guard (cityCheck position) >> renderTrain position
+    in group <$> maybeToList <$> (renderer <$> currentTrainPosition)
     
 renderTrainsByCity :: TrainCollection -> City -> Signal Form
 renderTrainsByCity trains city =
